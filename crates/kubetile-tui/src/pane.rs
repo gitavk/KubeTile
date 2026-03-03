@@ -26,6 +26,11 @@ pub trait Pane {
     fn on_focus_change(&mut self, _previous: Option<&ViewType>) {}
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// List panes return `(data_rows_rect, first_visible_row)` after each render.
+    /// Used by mouse hit-testing to map click coordinates to row indices.
+    fn list_row_geometry(&self) -> Option<(Rect, usize)> {
+        None
+    }
 }
 
 #[cfg(test)]

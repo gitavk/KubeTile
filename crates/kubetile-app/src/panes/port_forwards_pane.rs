@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cell::Cell;
 use std::time::Duration;
 
 use kubetile_core::ForwardId;
@@ -12,6 +13,8 @@ pub struct PortForwardsPane {
     view_type: ViewType,
     state: ResourceListState,
     ids: Vec<ForwardId>,
+    mouse_data_rect: Cell<Rect>,
+    mouse_first_row: Cell<usize>,
 }
 
 impl PortForwardsPane {
@@ -26,6 +29,8 @@ impl PortForwardsPane {
                 "AGE".into(),
             ]),
             ids: Vec::new(),
+            mouse_data_rect: Cell::new(Rect::default()),
+            mouse_first_row: Cell::new(0),
         }
     }
 
@@ -91,13 +96,21 @@ impl Pane for PortForwardsPane {
             all_namespaces: false,
             theme,
         };
-        widget.render(frame, area);
+        if let Some((dr, fr)) = widget.render(frame, area) {
+            self.mouse_data_rect.set(dr);
+            self.mouse_first_row.set(fr);
+        }
     }
 
     fn handle_command(&mut self, cmd: &PaneCommand) {
         match cmd {
             PaneCommand::SelectNext | PaneCommand::ScrollDown => self.nav_next(),
             PaneCommand::SelectPrev | PaneCommand::ScrollUp => self.nav_prev(),
+            PaneCommand::SelectDisplayRow(idx) => {
+                if !self.state.items.is_empty() {
+                    self.state.selected = Some((*idx).min(self.state.items.len() - 1));
+                }
+            }
             _ => {}
         }
     }
@@ -112,5 +125,14 @@ impl Pane for PortForwardsPane {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn list_row_geometry(&self) -> Option<(Rect, usize)> {
+        let r = self.mouse_data_rect.get();
+        if r.area() == 0 {
+            None
+        } else {
+            Some((r, self.mouse_first_row.get()))
+        }
     }
 }

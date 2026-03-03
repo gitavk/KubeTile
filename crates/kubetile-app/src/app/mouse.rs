@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::Rect;
@@ -7,6 +9,12 @@ use kubetile_tui::pane::{PaneCommand, PaneId, ViewType};
 use crate::command::InputMode;
 
 use super::App;
+
+pub(super) struct LastClick {
+    pub col: u16,
+    pub row: u16,
+    pub at: Instant,
+}
 
 impl App {
     /// Infer and enter the appropriate InputMode for whichever pane is currently
@@ -73,6 +81,16 @@ impl App {
             x += w;
         }
         self.mouse_tab_spans = spans;
+
+        // B1: list-pane row geometry — populated after each render
+        self.mouse_list_rows.clear();
+        for &(pane_id, _) in &self.mouse_pane_rects.clone() {
+            if let Some(pane) = self.panes.get(&pane_id) {
+                if let Some((data_rect, first_row)) = pane.list_row_geometry() {
+                    self.mouse_list_rows.push((pane_id, data_rect, first_row));
+                }
+            }
+        }
     }
 
     pub(super) fn handle_mouse(&mut self, event: MouseEvent) {
@@ -109,6 +127,32 @@ impl App {
                             self.tab_manager.active_mut().focused_pane = pane_id;
                             self.set_mode_for_focused_pane();
                         }
+                    }
+
+                    // B1: Row click inside a list pane
+                    let list_rows = self.mouse_list_rows.clone();
+                    for (pane_id, data_rect, first_row) in list_rows {
+                        if !rect_contains(&data_rect, col, row) {
+                            continue;
+                        }
+                        self.tab_manager.active_mut().focused_pane = pane_id;
+                        self.set_mode_for_focused_pane();
+
+                        let display_row = (row - data_rect.y) as usize + first_row;
+
+                        let now = Instant::now();
+                        let is_double = self.mouse_last_click.as_ref().is_some_and(|lc| {
+                            lc.col == col && lc.row == row && now.duration_since(lc.at) < Duration::from_millis(400)
+                        });
+                        self.mouse_last_click = Some(LastClick { col, row, at: now });
+
+                        if let Some(pane) = self.panes.get_mut(&pane_id) {
+                            pane.handle_command(&PaneCommand::SelectDisplayRow(display_row));
+                        }
+                        if is_double {
+                            self.handle_command(crate::command::Command::Pane(PaneCommand::Select));
+                        }
+                        return;
                     }
                 }
             }

@@ -33,6 +33,7 @@ pub enum PaneCommand {
     ClearFilter,
     SortByColumn(usize),
     ToggleSortOrder,
+    SelectDisplayRow(usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

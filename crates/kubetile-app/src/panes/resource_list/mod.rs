@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cell::Cell;
 use std::cmp::Ordering;
 
 use ratatui::prelude::{Frame, Rect};
@@ -16,6 +17,8 @@ pub struct ResourceListPane {
     pub sort_column: Option<usize>,
     pub sort_ascending: bool,
     pub all_namespaces: bool,
+    mouse_data_rect: Cell<Rect>,
+    mouse_first_row: Cell<usize>,
 }
 
 impl ResourceListPane {
@@ -28,6 +31,8 @@ impl ResourceListPane {
             sort_column: None,
             sort_ascending: true,
             all_namespaces: false,
+            mouse_data_rect: Cell::new(Rect::default()),
+            mouse_first_row: Cell::new(0),
         }
     }
 
@@ -249,7 +254,10 @@ impl Pane for ResourceListPane {
             all_namespaces: self.all_namespaces,
             theme,
         };
-        widget.render(frame, area);
+        if let Some((dr, fr)) = widget.render(frame, area) {
+            self.mouse_data_rect.set(dr);
+            self.mouse_first_row.set(fr);
+        }
     }
 
     fn handle_command(&mut self, cmd: &PaneCommand) {
@@ -271,6 +279,11 @@ impl Pane for ResourceListPane {
                 self.sort_ascending = !self.sort_ascending;
                 self.apply_sort();
             }
+            PaneCommand::SelectDisplayRow(idx) => {
+                if !self.filtered_indices.is_empty() {
+                    self.state.selected = Some((*idx).min(self.filtered_indices.len() - 1));
+                }
+            }
             _ => {}
         }
     }
@@ -285,6 +298,15 @@ impl Pane for ResourceListPane {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn list_row_geometry(&self) -> Option<(Rect, usize)> {
+        let r = self.mouse_data_rect.get();
+        if r.area() == 0 {
+            None
+        } else {
+            Some((r, self.mouse_first_row.get()))
+        }
     }
 }
 

@@ -21,7 +21,7 @@ pub struct ResourceListWidget<'a> {
 }
 
 impl<'a> ResourceListWidget<'a> {
-    pub fn render(self, frame: &mut Frame, area: Rect) {
+    pub fn render(self, frame: &mut Frame, area: Rect) -> Option<(Rect, usize)> {
         let t = self.theme;
         let border_color = if self.focused { t.accent } else { t.border.fg.unwrap_or(Color::Reset) };
 
@@ -42,13 +42,13 @@ impl<'a> ResourceListWidget<'a> {
         if self.loading {
             let msg = Paragraph::new("Loading...").style(t.text_dim).block(block);
             frame.render_widget(msg, area);
-            return;
+            return None;
         }
 
         if let Some(err) = self.error {
             let msg = Paragraph::new(format!("Error: {err}")).style(t.status_failed).block(block);
             frame.render_widget(msg, area);
-            return;
+            return None;
         }
 
         let inner = block.inner(area);
@@ -72,13 +72,13 @@ impl<'a> ResourceListWidget<'a> {
         if self.items.is_empty() && self.filter_text.is_none() {
             let msg = Paragraph::new("No resources found").style(t.text_dim);
             frame.render_widget(msg, content_area);
-            return;
+            return None;
         }
 
         if self.items.is_empty() {
             let msg = Paragraph::new("No matches").style(t.text_dim);
             frame.render_widget(msg, content_area);
-            return;
+            return None;
         }
 
         let header_fg = t.accent;
@@ -135,6 +135,14 @@ impl<'a> ResourceListWidget<'a> {
         let mut table_state = ratatui::widgets::TableState::default().with_selected(self.selected);
         frame.render_stateful_widget(table, content_area, &mut table_state);
 
+        let data_rect = Rect {
+            x: content_area.x,
+            y: content_area.y + 1,
+            width: content_area.width,
+            height: content_area.height.saturating_sub(1),
+        };
+        let first_visible_row = table_state.offset();
+
         if self.items.len() > content_area.height.saturating_sub(2) as usize {
             let mut scrollbar_state = ScrollbarState::new(self.items.len()).position(self.selected.unwrap_or(0));
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight).style(t.border);
@@ -144,6 +152,8 @@ impl<'a> ResourceListWidget<'a> {
                 &mut scrollbar_state,
             );
         }
+
+        Some((data_rect, first_visible_row))
     }
 }
 
