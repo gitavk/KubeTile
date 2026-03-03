@@ -171,6 +171,8 @@ pub struct App {
     // Mouse state (Phase B)
     mouse_last_click: Option<mouse::LastClick>,
     mouse_list_rows: Vec<(PaneId, Rect, usize)>, // (pane_id, data_rect, first_visible_row)
+    // Mouse state (Phase C2)
+    mouse_list_headers: Vec<mouse::HeaderEntry>, // (pane_id, header_y, col_spans)
 }
 
 impl App {
@@ -247,6 +249,7 @@ impl App {
             mouse_status_bar_row: 0,
             mouse_last_click: None,
             mouse_list_rows: Vec::new(),
+            mouse_list_headers: Vec::new(),
         };
         app.sync_active_scope();
         app.update_active_tab_title();

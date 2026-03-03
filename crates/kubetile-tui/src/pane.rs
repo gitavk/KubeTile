@@ -31,6 +31,10 @@ pub trait Pane {
     fn list_row_geometry(&self) -> Option<(Rect, usize)> {
         None
     }
+    /// List panes return `(header_row_y, col_spans)` for column-header click detection.
+    fn list_header_geometry(&self) -> Option<(u16, Vec<(u16, u16)>)> {
+        None
+    }
 }
 
 #[cfg(test)]

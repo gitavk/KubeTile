@@ -16,6 +16,9 @@ pub(super) struct LastClick {
     pub at: Instant,
 }
 
+/// (pane_id, header_row_y, col_spans)
+pub(super) type HeaderEntry = (PaneId, u16, Vec<(u16, u16)>);
+
 impl App {
     /// Infer and enter the appropriate InputMode for whichever pane is currently
     /// focused.  Called after any mouse-driven focus change so the user can
@@ -84,10 +87,14 @@ impl App {
 
         // B1: list-pane row geometry — populated after each render
         self.mouse_list_rows.clear();
+        self.mouse_list_headers.clear();
         for &(pane_id, _) in &self.mouse_pane_rects.clone() {
             if let Some(pane) = self.panes.get(&pane_id) {
                 if let Some((data_rect, first_row)) = pane.list_row_geometry() {
                     self.mouse_list_rows.push((pane_id, data_rect, first_row));
+                }
+                if let Some((header_y, col_spans)) = pane.list_header_geometry() {
+                    self.mouse_list_headers.push((pane_id, header_y, col_spans));
                 }
             }
         }
@@ -127,6 +134,27 @@ impl App {
                             self.tab_manager.active_mut().focused_pane = pane_id;
                             self.set_mode_for_focused_pane();
                         }
+                    }
+
+                    // C2: Column header click → sort
+                    let list_headers = self.mouse_list_headers.clone();
+                    for (pane_id, header_y, col_spans) in list_headers {
+                        if row != header_y {
+                            continue;
+                        }
+                        if pane_at(&self.mouse_pane_rects, col, row).is_none_or(|id| id != pane_id) {
+                            continue;
+                        }
+                        self.tab_manager.active_mut().focused_pane = pane_id;
+                        self.set_mode_for_focused_pane();
+                        if let Some(col_idx) =
+                            col_spans.iter().position(|&(x_start, x_end)| col >= x_start && col < x_end)
+                        {
+                            if let Some(pane) = self.panes.get_mut(&pane_id) {
+                                pane.handle_command(&PaneCommand::SortByColumn(col_idx));
+                            }
+                        }
+                        return;
                     }
 
                     // B1: Row click inside a list pane

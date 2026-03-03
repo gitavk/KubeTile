@@ -96,9 +96,9 @@ impl Pane for PortForwardsPane {
             all_namespaces: false,
             theme,
         };
-        if let Some((dr, fr)) = widget.render(frame, area) {
-            self.mouse_data_rect.set(dr);
-            self.mouse_first_row.set(fr);
+        if let Some(geo) = widget.render(frame, area) {
+            self.mouse_data_rect.set(geo.data_rect);
+            self.mouse_first_row.set(geo.first_visible_row);
         }
     }
 

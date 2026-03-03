@@ -1,6 +1,13 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table};
 
+pub struct ListRenderGeometry {
+    pub data_rect: Rect,
+    pub first_visible_row: usize,
+    pub header_y: u16,
+    pub col_spans: Vec<(u16, u16)>, // (x_start, x_end) per column
+}
+
 use crate::theme::Theme;
 
 pub struct ResourceListWidget<'a> {
@@ -21,7 +28,7 @@ pub struct ResourceListWidget<'a> {
 }
 
 impl<'a> ResourceListWidget<'a> {
-    pub fn render(self, frame: &mut Frame, area: Rect) -> Option<(Rect, usize)> {
+    pub fn render(self, frame: &mut Frame, area: Rect) -> Option<ListRenderGeometry> {
         let t = self.theme;
         let border_color = if self.focused { t.accent } else { t.border.fg.unwrap_or(Color::Reset) };
 
@@ -130,18 +137,26 @@ impl<'a> ResourceListWidget<'a> {
             })
             .collect();
 
+        let col_layout =
+            Layout::default().direction(Direction::Horizontal).constraints(widths.clone()).split(content_area);
+        let col_spans: Vec<(u16, u16)> = col_layout.iter().map(|r| (r.x, r.x + r.width)).collect();
+
         let table = Table::new(rows, &widths).header(header).row_highlight_style(t.selection).highlight_symbol("▶ ");
 
         let mut table_state = ratatui::widgets::TableState::default().with_selected(self.selected);
         frame.render_stateful_widget(table, content_area, &mut table_state);
 
-        let data_rect = Rect {
-            x: content_area.x,
-            y: content_area.y + 1,
-            width: content_area.width,
-            height: content_area.height.saturating_sub(1),
+        let geo = ListRenderGeometry {
+            data_rect: Rect {
+                x: content_area.x,
+                y: content_area.y + 1,
+                width: content_area.width,
+                height: content_area.height.saturating_sub(1),
+            },
+            first_visible_row: table_state.offset(),
+            header_y: content_area.y,
+            col_spans,
         };
-        let first_visible_row = table_state.offset();
 
         if self.items.len() > content_area.height.saturating_sub(2) as usize {
             let mut scrollbar_state = ScrollbarState::new(self.items.len()).position(self.selected.unwrap_or(0));
@@ -153,7 +168,7 @@ impl<'a> ResourceListWidget<'a> {
             );
         }
 
-        Some((data_rect, first_visible_row))
+        Some(geo)
     }
 }
 

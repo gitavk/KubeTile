@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 
 use ratatui::prelude::{Frame, Rect};
@@ -19,6 +19,8 @@ pub struct ResourceListPane {
     pub all_namespaces: bool,
     mouse_data_rect: Cell<Rect>,
     mouse_first_row: Cell<usize>,
+    mouse_header_y: Cell<u16>,
+    mouse_col_spans: RefCell<Vec<(u16, u16)>>,
 }
 
 impl ResourceListPane {
@@ -33,6 +35,8 @@ impl ResourceListPane {
             all_namespaces: false,
             mouse_data_rect: Cell::new(Rect::default()),
             mouse_first_row: Cell::new(0),
+            mouse_header_y: Cell::new(0),
+            mouse_col_spans: RefCell::new(Vec::new()),
         }
     }
 
@@ -254,9 +258,11 @@ impl Pane for ResourceListPane {
             all_namespaces: self.all_namespaces,
             theme,
         };
-        if let Some((dr, fr)) = widget.render(frame, area) {
-            self.mouse_data_rect.set(dr);
-            self.mouse_first_row.set(fr);
+        if let Some(geo) = widget.render(frame, area) {
+            self.mouse_data_rect.set(geo.data_rect);
+            self.mouse_first_row.set(geo.first_visible_row);
+            self.mouse_header_y.set(geo.header_y);
+            *self.mouse_col_spans.borrow_mut() = geo.col_spans;
         }
     }
 
@@ -306,6 +312,15 @@ impl Pane for ResourceListPane {
             None
         } else {
             Some((r, self.mouse_first_row.get()))
+        }
+    }
+
+    fn list_header_geometry(&self) -> Option<(u16, Vec<(u16, u16)>)> {
+        let spans = self.mouse_col_spans.borrow().clone();
+        if spans.is_empty() {
+            None
+        } else {
+            Some((self.mouse_header_y.get(), spans))
         }
     }
 }
