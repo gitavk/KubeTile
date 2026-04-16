@@ -269,8 +269,20 @@ impl App {
                     .map(|k| self.views_config.columns_for(super::resource_kind_config_key(k)))
                     .unwrap_or(&[]);
 
+                let ns_augmented;
+                let effective_configured: &[String] = if resource_pane.all_namespaces
+                    && !configured_columns.iter().any(|c| c.eq_ignore_ascii_case("namespace"))
+                {
+                    ns_augmented = std::iter::once("namespace".to_string())
+                        .chain(configured_columns.iter().cloned())
+                        .collect::<Vec<_>>();
+                    &ns_augmented
+                } else {
+                    configured_columns
+                };
+
                 let (effective_headers, effective_rows) =
-                    kubetile_config::views::filter_columns(configured_columns, &headers, &rows);
+                    kubetile_config::views::filter_columns(effective_configured, &headers, &rows);
 
                 if !effective_headers.is_empty() {
                     resource_pane.state.headers = effective_headers;

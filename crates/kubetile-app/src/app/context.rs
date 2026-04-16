@@ -68,8 +68,18 @@ impl App {
 
     pub(super) fn select_namespace(&mut self) {
         let filtered = self.filtered_namespaces();
-        if let Some(ns) = filtered.get(self.namespace_selected).cloned() {
-            let ns = if ns == "All Namespaces" { "default".to_string() } else { ns };
+        if let Some(selected) = filtered.get(self.namespace_selected).cloned() {
+            let is_all = selected == "All Namespaces";
+            let ns = if is_all { "default".to_string() } else { selected };
+
+            let pane_ids: Vec<_> = self.tab_manager.active().pane_tree.leaf_ids();
+            for pane_id in pane_ids {
+                if let Some(pane) = self.panes.get_mut(&pane_id) {
+                    if let Some(rp) = pane.as_any_mut().downcast_mut::<ResourceListPane>() {
+                        rp.all_namespaces = is_all;
+                    }
+                }
+            }
 
             if let Some(ref mut client) = self.kube_client {
                 client.set_namespace(&ns);
